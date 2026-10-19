@@ -6,15 +6,14 @@ xfce4
 xfce4-terminal
 lightdm
 lightdm-gtk-greeter
-xserver-xorg
-xserver-xorg-video-all
-xserver-xorg-input-all
+xserver-xorg-core
+xserver-xorg-input-libinput
 network-manager
 network-manager-gnome
 pipewire
 pipewire-audio
 wireplumber
-fonts-noto-cjk
+fonts-wqy-zenhei
 fonts-noto-core
 dbus-x11
 
