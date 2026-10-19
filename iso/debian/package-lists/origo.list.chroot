@@ -4,7 +4,6 @@
 # Minimal desktop
 xfce4
 xfce4-terminal
-xfce4-goodies
 lightdm
 lightdm-gtk-greeter
 xserver-xorg

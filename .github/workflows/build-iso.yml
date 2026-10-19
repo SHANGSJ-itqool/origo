@@ -1,0 +1,58 @@
+name: Build ISO
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "agent/**"
+      - "iso/**"
+      - ".github/workflows/build-iso.yml"
+  workflow_dispatch:
+    inputs:
+      with_ollama:
+        description: "Build with Ollama runtime (1 = yes)"
+        required: false
+        default: "0"
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            live-build live-config debootstrap cpio xorriso isolinux \
+            squashfs-tools grub-pc-bin grub-efi-amd64-bin mtools dosfstools \
+            curl ca-certificates
+
+      - name: Build Origo ISO
+        working-directory: iso
+        env:
+          MIRROR: http://deb.debian.org/debian
+          SECURITY_MIRROR: http://deb.debian.org/debian-security
+          WITH_OLLAMA: ${{ github.event.inputs.with_ollama || '0' }}
+        run: sudo -E ./build.sh
+
+      - name: Stage ISO and checksum
+        run: |
+          ISO=$(ls iso/build/*.iso | head -1)
+          echo "Built: $ISO"
+          du -h "$ISO"
+          cp "$ISO" origo-v0.1-amd64.iso
+          sha256sum origo-v0.1-amd64.iso | tee origo-v0.1-amd64.iso.sha256
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: origo-v0.1-amd64
+          path: |
+            origo-v0.1-amd64.iso
+            origo-v0.1-amd64.iso.sha256
+          retention-days: 30
+          compression-level: 0
