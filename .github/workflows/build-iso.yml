@@ -40,7 +40,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             live-build live-config debootstrap cpio xorriso isolinux \
             squashfs-tools grub-pc-bin grub-efi-amd64-bin mtools dosfstools \
-            coreutils curl ca-certificates grep
+            coreutils curl ca-certificates grep jq
 
       - name: Select edition
         run: |
@@ -127,6 +127,25 @@ jobs:
           path: artifact/*
           retention-days: 30
           compression-level: 0
+
+      - name: Clean existing release assets
+        if: steps.build.outcome == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${GITHUB_REPOSITORY}"
+          API="https://api.github.com/repos/${REPO}/releases"
+          AUTH=(-H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json")
+          REL=$(curl -fsS "${AUTH[@]}" "${API}/tags/v0.1" || true)
+          if [ -z "$REL" ]; then
+            echo "release v0.1 does not exist yet; nothing to clean."
+            exit 0
+          fi
+          REL_ID=$(echo "$REL" | jq -r '.id')
+          echo "$REL" | jq -r '.assets[].id' | while read -r aid; do
+            echo "deleting asset ${aid}"
+            curl -fsS -X DELETE "${AUTH[@]}" "${API}/${REL_ID}/assets/${aid}" || true
+          done
 
       - name: Publish rolling v0.1 release
         if: steps.build.outcome == 'success'

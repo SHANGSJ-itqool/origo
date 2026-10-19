@@ -83,9 +83,35 @@ rm -rf config/includes.chroot/opt/origo/agent/.venv \
        config/includes.chroot/opt/origo/agent/**/__pycache__ || true
 find config/includes.chroot/opt/origo -name '__pycache__' -type d -prune -exec rm -rf {} + || true
 
+# Persist build options for the chroot hook. live-build does NOT forward the
+# exported environment into the chroot, so the hook reads this file instead.
+mkdir -p config/includes.chroot/etc/origo
+cat > config/includes.chroot/etc/origo/build.env <<EOF
+WITH_OLLAMA=${WITH_OLLAMA}
+WITH_MODEL=${WITH_MODEL}
+ORIGO_MODEL_TAG=${ORIGO_MODEL_TAG}
+OLLAMA_MIRROR=${OLLAMA_MIRROR}
+EOF
+
 echo "==> Building image (this can take a while)..."
 lb build
 
 echo "==> Build artifacts:"
 ls -lh "${WORK}"/*.iso 2>/dev/null || true
+
+# Guard the full edition: if the model failed to embed, fail loudly instead
+# of shipping an image that is only nominally "full".
+if [ "${WITH_OLLAMA}" = "1" ] && [ "${WITH_MODEL}" = "1" ]; then
+  ISO_OUT="$(ls "${WORK}"/*.iso 2>/dev/null | head -1 || true)"
+  if [ -n "${ISO_OUT}" ]; then
+    SZ=$(stat -c%s "${ISO_OUT}")
+    if [ "${SZ}" -lt 2600000000 ]; then
+      echo "!! Full edition: expected the embedded model but image is only ${SZ} bytes." >&2
+      echo "!! The model failed to embed; see the hook output above." >&2
+      exit 1
+    fi
+    echo "==> Full image size OK (${SZ} bytes; model embedded)."
+  fi
+fi
+
 echo "Done. Flash the ISO or test it in a VM."

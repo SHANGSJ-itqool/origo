@@ -2,6 +2,17 @@
 ## live-build hook: prepare Origo agent and (optional) local model runtime.
 set -e
 
+# live-build does not forward the host environment into the chroot; read the
+# build options from the file laid down by build.sh.
+if [ -f /etc/origo/build.env ]; then
+  # shellcheck disable=SC1091
+  . /etc/origo/build.env
+fi
+WITH_OLLAMA="${WITH_OLLAMA:-1}"
+WITH_MODEL="${WITH_MODEL:-1}"
+ORIGO_MODEL_TAG="${ORIGO_MODEL_TAG:-qwen3:1.7b}"
+OLLAMA_MIRROR="${OLLAMA_MIRROR:-}"
+
 # The agent code is laid down at /opt/origo/agent via includes.chroot.
 chmod -R a+rX /opt/origo
 find /opt/origo -type d -exec chmod 755 {} \;
@@ -14,44 +25,78 @@ exec python3 -m origo_agent "$@"
 EOF
 chmod 755 /usr/local/bin/origo-agent
 
-# System-level config: pin the model tag this image actually ships, so the
-# agent can never look for a different model than the one present in the image.
+# System-level config pinning the model tag this image actually ships.
 mkdir -p /etc/origo
 cat > /etc/origo/config.toml <<EOF
 # Written by the Origo image build. Pins the model tag present in this image.
-model = "${ORIGO_MODEL_TAG:-qwen3:1.7b}"
+model = "${ORIGO_MODEL_TAG}"
 EOF
 
-# Optional: install Ollama local model runtime (set WITH_OLLAMA=1).
-if [ "${WITH_OLLAMA:-0}" = "1" ]; then
-  echo "Installing Ollama..."
+MODEL_READY=0
+
+if [ "${WITH_OLLAMA}" = "1" ]; then
+  echo "==> Installing Ollama runtime..."
   if [ -n "${OLLAMA_MIRROR}" ]; then
-    curl -fsSL "${OLLAMA_MIRROR}" | sh
+    curl -fsSL "${OLLAMA_MIRROR}" | sh || echo "!! Ollama install script reported a failure"
   else
-    curl -fsSL https://ollama.com/install.sh | sh
+    curl -fsSL https://ollama.com/install.sh | sh || echo "!! Ollama install script reported a failure"
+  fi
+
+  if [ ! -x /usr/local/bin/ollama ]; then
+    echo "!! Ollama installation failed (binary missing at /usr/local/bin/ollama)." >&2
+  else
+    echo "==> Ollama installed: $(/usr/local/bin/ollama --version 2>&1 | head -1)"
+
+    if [ "${WITH_MODEL}" = "1" ]; then
+      echo "==> Pre-pulling model: ${ORIGO_MODEL_TAG}"
+      export OLLAMA_MODELS="${OLLAMA_MODELS:-/usr/share/ollama/.ollama/models}"
+      export OLLAMA_HOST="127.0.0.1:11434"
+      export HOME="${HOME:-/root}"
+      mkdir -p "$OLLAMA_MODELS"
+
+      # systemd is not running inside the chroot; start a temporary server.
+      /usr/local/bin/ollama serve >/var/log/origo-ollama-boot.log 2>&1 &
+      SRV=$!
+      READY=0
+      for i in $(seq 1 60); do
+        if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+          READY=1
+          break
+        fi
+        sleep 1
+      done
+
+      if [ "$READY" != "1" ]; then
+        echo "!! Ollama server did not become ready. Boot log:" >&2
+        tail -n 25 /var/log/origo-ollama-boot.log >&2 || true
+      else
+        if /usr/local/bin/ollama pull "${ORIGO_MODEL_TAG}"; then
+          echo "==> Verifying embedded model..."
+          if /usr/local/bin/ollama list | grep -F "${ORIGO_MODEL_TAG}" >/dev/null 2>&1; then
+            MODEL_READY=1
+            echo "==> Model present: ${ORIGO_MODEL_TAG}"
+          else
+            echo "!! Pull reported success but model is not listed." >&2
+          fi
+        else
+          echo "!! ollama pull failed for ${ORIGO_MODEL_TAG}." >&2
+        fi
+      fi
+
+      kill "$SRV" 2>/dev/null || true
+      wait "$SRV" 2>/dev/null || true
+      # The systemd service runs as the ollama user; hand over the model dir.
+      chown -R ollama:ollama /usr/share/ollama 2>/dev/null || true
+    fi
   fi
 fi
 
-# Optional: pre-pull a model into the image (set WITH_MODEL=1).
-if [ "${WITH_MODEL:-0}" = "1" ] && [ "${WITH_OLLAMA:-0}" = "1" ]; then
-  MODEL="${ORIGO_MODEL_TAG:-qwen3:1.7b}"
-  echo "Pre-pulling model: ${MODEL}"
-  # The systemd service runs as the 'ollama' user; store the model where it
-  # expects it (the install script creates this user/home).
-  export OLLAMA_MODELS="${OLLAMA_MODELS:-/usr/share/ollama/.ollama/models}"
-  mkdir -p "$OLLAMA_MODELS"
-  # systemd is not running inside the chroot, so start a temporary server.
-  /usr/local/bin/ollama serve >/var/log/origo-ollama-boot.log 2>&1 &
-  SRV=$!
-  for _ in $(seq 1 30); do
-    if curl -fsS http://localhost:11434/api/tags >/dev/null 2>&1; then break; fi
-    sleep 1
-  done
-  /usr/local/bin/ollama pull "$MODEL" || true
-  kill "$SRV" 2>/dev/null || true
-  wait "$SRV" 2>/dev/null || true
-  # Hand the model directory over to the runtime user.
-  chown -R ollama:ollama /usr/share/ollama 2>/dev/null || true
+if [ "${WITH_OLLAMA}" = "1" ] && [ "${WITH_MODEL}" = "1" ] && [ "$MODEL_READY" != "1" ]; then
+  echo "!! WARNING: full image requested but the model is NOT embedded." >&2
+  echo "!! It will be downloaded on first run; the agent guides the user." >&2
 fi
 
-echo "Origo agent hook complete."
+# Remove the build-options file (not needed in the shipped system).
+rm -f /etc/origo/build.env
+
+echo "Origo agent hook complete (model_embedded=${MODEL_READY})."
