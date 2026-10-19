@@ -4,8 +4,8 @@
 
 $ErrorActionPreference = "Stop"
 
-$rootfs = "C:\Users\shang\DoubaoWork\wsl\ubuntu-noble-rootfs.tar.gz"
-$installDir = "C:\Users\shang\DoubaoWork\wsl\Origo"
+$rootfs = "H:\origo\wsl\ubuntu-noble-rootfs.tar.gz"
+$installDir = "H:\origo\wsl\Origo"
 
 if (-not (Test-Path $rootfs)) {
     throw "rootfs not found: $rootfs"
@@ -22,9 +22,9 @@ Write-Output "==> Verifying Linux environment..."
 wsl -d Origo -u root -- bash -c "cat /etc/os-release | head -2; uname -r"
 
 Write-Output "==> Configuring apt mirror and installing build tools..."
-$repo = "C:\Users\shang\DoubaoWork\chats\2026-10-18\new-chat\origo"
+$repo = "H:\origo\origo"
 # Convert the Windows repo path to a WSL path for invocation.
-$wslRepo = "/mnt/c/Users/shang/DoubaoWork/chats/2026-10-18/new-chat/origo"
+$wslRepo = "/mnt/h/origo/origo"
 wsl -d Origo -u root -- bash -lc "bash ${wslRepo}/scripts/setup-wsl.sh"
 
 Write-Output "Environment ready. Next: build the ISO (see iso/README.md)."
