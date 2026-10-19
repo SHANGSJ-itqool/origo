@@ -40,10 +40,8 @@ jobs:
           SECURITY_MIRROR: http://deb.debian.org/debian-security
           WITH_OLLAMA: ${{ github.event.inputs.with_ollama || '0' }}
         run: |
+          set -o pipefail
           sudo -E bash -x ./build.sh 2>&1 | sudo tee /tmp/origo-build.log
-          # propagate the build script's real exit status
-          sudo test -f /tmp/origo-status && sudo cat /tmp/origo-status || true
-          exit ${PIPESTATUS[0]}
 
       - name: Diagnose failure
         if: steps.build.outcome == 'failure'
@@ -58,9 +56,13 @@ jobs:
           sudo grep -nE 'E: |Error:|error:|ERROR|unrecognized|unknown|not found|No such|cannot|Failed|failed|exit status|Invalid' \
             /tmp/origo-build.log iso/build/build.log 2>/dev/null | tail -60 || true
           echo "::endgroup::"
-          # Surface up to 20 key error lines as annotations (visible on the run summary).
-          sudo grep -hoE 'E: .*|Error: .*|error: .*|unrecognized .*|No such .*|cannot .*|Invalid .*|.*not found.*' \
-            /tmp/origo-build.log iso/build/build.log 2>/dev/null | tail -20 | \
+          # Surface key error lines AND the last 25 log lines as annotations.
+          {
+            sudo grep -hoE 'E: .*|Error: .*|error: .*|unrecognized .*|No such .*|cannot .*|Invalid .*|.*not found.*|.*Failed.*|.*failed.*' \
+              /tmp/origo-build.log 2>/dev/null | tail -20
+            echo "----- last 25 lines -----"
+            sudo tail -n 25 /tmp/origo-build.log
+          } | grep -vE '^\+' | grep -vE '^[[:space:]]*$' | tail -40 | \
           while IFS= read -r line; do echo "::error::${line}"; done || true
 
       - name: Upload build logs
