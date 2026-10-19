@@ -1,6 +1,14 @@
 # Origo v0.1 package list (installed in the live system / chroot)
 # Minimal Xfce desktop + graphical installer + Origo agent dependencies
 
+# Live system runtime: create user/password and graphical autologin at boot.
+# (components are listed explicitly because --apt-recommends is false;
+#  in trixie the X11 autologin components live inside the live-config package)
+live-boot
+live-config
+live-config-systemd
+live-tools
+
 # Minimal desktop
 xfce4
 xfce4-terminal
