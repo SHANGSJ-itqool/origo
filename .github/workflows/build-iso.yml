@@ -17,16 +17,20 @@ on:
 jobs:
   build-iso:
     runs-on: ubuntu-latest
+    container:
+      image: debian:trixie
+      options: --privileged
     timeout-minutes: 90
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install host build dependencies
+      - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends \
             live-build live-config debootstrap cpio xorriso isolinux \
             squashfs-tools grub-pc-bin grub-efi-amd64-bin mtools dosfstools \
             curl ca-certificates grep
@@ -39,30 +43,20 @@ jobs:
           MIRROR: http://deb.debian.org/debian
           SECURITY_MIRROR: http://deb.debian.org/debian-security
           WITH_OLLAMA: ${{ github.event.inputs.with_ollama || '0' }}
-        run: |
-          set -o pipefail
-          sudo -E bash -x ./build.sh 2>&1 | sudo tee /tmp/origo-build.log
+        run: ./build.sh
 
       - name: Diagnose failure
         if: steps.build.outcome == 'failure'
         run: |
-          echo "::group::/tmp/origo-build.log (tail)"
-          sudo tail -n 150 /tmp/origo-build.log || true
-          echo "::endgroup::"
           echo "::group::live-build build.log (tail)"
-          sudo tail -n 150 iso/build/build.log 2>/dev/null || echo "no live-build build.log"
+          tail -n 150 iso/build/build.log 2>/dev/null || echo "no build.log"
           echo "::endgroup::"
-          echo "::group::key error lines"
-          sudo grep -nE 'E: |Error:|error:|ERROR|unrecognized|unknown|not found|No such|cannot|Failed|failed|exit status|Invalid' \
-            /tmp/origo-build.log iso/build/build.log 2>/dev/null | tail -60 || true
-          echo "::endgroup::"
-          # Surface key error lines AND the last 25 log lines as annotations.
           {
-            sudo grep -hoE 'E: .*|Error: .*|error: .*|unrecognized .*|No such .*|cannot .*|Invalid .*|.*not found.*|.*Failed.*|.*failed.*' \
-              /tmp/origo-build.log 2>/dev/null | tail -20
+            grep -hoE 'E: .*|Error: .*|error: .*|No such .*|cannot .*|Invalid .*|.*not found.*|.*Failed.*|.*failed.*' \
+              iso/build/build.log 2>/dev/null | tail -25
             echo "----- last 25 lines -----"
-            sudo tail -n 25 /tmp/origo-build.log
-          } | grep -vE '^\+' | grep -vE '^[[:space:]]*$' | tail -40 | \
+            tail -n 25 iso/build/build.log 2>/dev/null
+          } | grep -vE '^[[:space:]]*$' | tail -40 | \
           while IFS= read -r line; do echo "::error::${line}"; done || true
 
       - name: Upload build logs
@@ -70,9 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: |
-            /tmp/origo-build.log
-            iso/build/build.log
+          path: iso/build/build.log
           if-no-files-found: ignore
           retention-days: 14
 
