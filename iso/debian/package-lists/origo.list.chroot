@@ -42,9 +42,8 @@ pciutils
 file
 man-db
 
-# Firmware / hardware support (needs contrib non-free nonfree-firmware)
-firmware-linux
+# Firmware / hardware support (non-free-firmware archive area)
 firmware-misc-nonfree
 firmware-iwlwifi
 firmware-realtek
-firmware-atheros
+firmware-ath9k-htc

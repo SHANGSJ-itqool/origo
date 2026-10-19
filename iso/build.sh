@@ -49,7 +49,7 @@ echo "==> Running lb config (dist=${DIST}, mirror=${MIRROR})..."
 lb config \
   --distribution "${DIST}" \
   --architectures amd64 \
-  --archive-areas "main contrib non-free nonfree-firmware" \
+  --archive-areas "main contrib non-free non-free-firmware" \
   --debian-installer live \
   --debian-installer-gui true \
   --mirror-bootstrap "${MIRROR}" \
