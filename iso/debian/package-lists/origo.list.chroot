@@ -16,7 +16,7 @@ wireplumber
 fonts-wqy-zenhei
 fonts-noto-core
 dbus-x11
-policykit-1
+polkit
 policykit-1-gnome
 xdg-utils
 
