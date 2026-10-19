@@ -16,6 +16,9 @@ wireplumber
 fonts-wqy-zenhei
 fonts-noto-core
 dbus-x11
+policykit-1
+policykit-1-gnome
+xdg-utils
 
 # Graphical installer
 calamares

@@ -50,6 +50,7 @@ lb config \
   --distribution "${DIST}" \
   --architectures amd64 \
   --archive-areas "main contrib non-free non-free-firmware" \
+  --apt-recommends false \
   --debian-installer live \
   --debian-installer-gui true \
   --mirror-bootstrap "${MIRROR}" \
