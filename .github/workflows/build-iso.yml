@@ -92,3 +92,17 @@ jobs:
             origo-v0.1-amd64.iso.sha256
           retention-days: 30
           compression-level: 0
+
+      - name: Publish rolling v0.1 release
+        if: steps.build.outcome == 'success'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1
+          name: "Origo v0.1 (rolling preview)"
+          prerelease: true
+          make_latest: false
+          files: |
+            origo-v0.1-amd64.iso
+            origo-v0.1-amd64.iso.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
