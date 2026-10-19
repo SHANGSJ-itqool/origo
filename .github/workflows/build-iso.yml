@@ -14,6 +14,9 @@ on:
         required: false
         default: "0"
 
+permissions:
+  contents: write
+
 jobs:
   build-iso:
     runs-on: ubuntu-latest
