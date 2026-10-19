@@ -29,6 +29,10 @@ jobs:
       options: --privileged
     timeout-minutes: 120
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,7 +42,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
           apt-get install -y --no-install-recommends \
-            live-build live-config debootstrap cpio xorriso isolinux \
+            bash live-build live-config debootstrap cpio xorriso isolinux \
             squashfs-tools grub-pc-bin grub-efi-amd64-bin mtools dosfstools \
             coreutils curl ca-certificates grep jq
 
@@ -79,7 +83,7 @@ jobs:
             echo "----- last 25 lines -----"
             tail -n 25 "$LOG" 2>/dev/null
           } | grep -vE '^[[:space:]]*$' | tail -40 | \
-          while IFS= read -r line; do echo "::error::${line}"; done || true
+            while IFS= read -r line; do echo "::error::${line}"; done || true
 
       - name: Upload build logs
         if: always()
@@ -135,8 +139,8 @@ jobs:
         run: |
           REPO="${GITHUB_REPOSITORY}"
           API="https://api.github.com/repos/${REPO}/releases"
-          AUTH=(-H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json")
-          REL=$(curl -fsS "${AUTH[@]}" "${API}/tags/v0.1" || true)
+          REL=$(curl -fsS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" "${API}/tags/v0.1" || true)
           if [ -z "$REL" ]; then
             echo "release v0.1 does not exist yet; nothing to clean."
             exit 0
@@ -144,7 +148,9 @@ jobs:
           REL_ID=$(echo "$REL" | jq -r '.id')
           echo "$REL" | jq -r '.assets[].id' | while read -r aid; do
             echo "deleting asset ${aid}"
-            curl -fsS -X DELETE "${AUTH[@]}" "${API}/${REL_ID}/assets/${aid}" || true
+            curl -fsS -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${API}/${REL_ID}/assets/${aid}" || true
           done
 
       - name: Publish rolling v0.1 release
