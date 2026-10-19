@@ -17,7 +17,7 @@ fonts-wqy-zenhei
 fonts-noto-core
 dbus-x11
 polkitd
-policykit-1-gnome
+lxpolkit
 xdg-utils
 
 # Graphical installer
