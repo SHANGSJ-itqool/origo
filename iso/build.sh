@@ -52,7 +52,6 @@ lb config \
   --archive-areas "main contrib non-free nonfree-firmware" \
   --debian-installer live \
   --debian-installer-gui true \
-  --bootloaders "syslinux,grub-pc,grub-efi" \
   --mirror-bootstrap "${MIRROR}" \
   --mirror-chroot "${MIRROR}" \
   --mirror-binary "${MIRROR}" \
