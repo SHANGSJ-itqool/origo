@@ -1,0 +1,34 @@
+#!/bin/bash
+## live-build hook: prepare Origo agent and (optional) local model runtime.
+set -e
+
+# The agent code is laid down at /opt/origo/agent via includes.chroot.
+chmod -R a+rX /opt/origo
+find /opt/origo -type d -exec chmod 755 {} \;
+
+# Make the agent launchable as a command for all users.
+cat > /usr/local/bin/origo-agent <<'EOF'
+#!/bin/bash
+cd /opt/origo/agent
+exec python3 -m origo_agent "$@"
+EOF
+chmod 755 /usr/local/bin/origo-agent
+
+# Optional: install Ollama local model runtime (set WITH_OLLAMA=1).
+if [ "${WITH_OLLAMA}" = "1" ]; then
+  echo "Installing Ollama..."
+  if [ -n "${OLLAMA_MIRROR}" ]; then
+    curl -fsSL "${OLLAMA_MIRROR}" | sh
+  else
+    curl -fsSL https://ollama.com/install.sh | sh
+  fi
+fi
+
+# Optional: pre-pull a small model into the image (set WITH_MODEL=1).
+if [ "${WITH_MODEL}" = "1" ] && [ "${WITH_OLLAMA}" = "1" ]; then
+  MODEL="${ORIGO_MODEL_TAG:-qwen3:0.6b}"
+  echo "Pre-pulling model: ${MODEL}"
+  ollama pull "${MODEL}" || true
+fi
+
+echo "Origo agent hook complete."

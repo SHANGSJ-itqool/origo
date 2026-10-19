@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/
+
+# Build artifacts (ISO)
+iso/build/
+*.iso
+*.img
+*.squashfs
+wsl/
+models/*.gguf
+models/*.bin
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

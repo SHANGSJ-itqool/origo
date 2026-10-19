@@ -1,0 +1,24 @@
+#!/bin/bash
+## live-build hook: first-run welcome and boot polish.
+set -e
+
+# Ensure the autostart directory exists for new users and the live user.
+mkdir -p /etc/skel/.config/autostart
+mkdir -p /home/user/.config/autostart
+if [ -f /etc/skel/.config/autostart/origo-agent.desktop ]; then
+  cp /etc/skel/.config/autostart/origo-agent.desktop /home/user/.config/autostart/ 2>/dev/null || true
+  chown -R user:user /home/user/.config 2>/dev/null || true
+fi
+
+# Friendly desktop note.
+cat > /etc/skel/Desktop/origo-readme.txt <<'EOF'
+Welcome to Origo (元启) v0.1
+- The Origo agent opens on login. Just type or say what you want.
+- Use the Install icon/menu to install to disk (Calamares).
+- Classic desktop is available any time as a fallback.
+Project: see /opt/origo and the project README.
+EOF
+cp /etc/skel/Desktop/origo-readme.txt /home/user/Desktop/ 2>/dev/null || true
+chmod 644 /etc/skel/Desktop/origo-readme.txt
+
+echo "Origo welcome hook complete."

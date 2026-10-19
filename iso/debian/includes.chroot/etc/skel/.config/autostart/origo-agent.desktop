@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Origo Agent
+Name[zh_CN]=元启智能体
+Comment=Origo AI-native agent (intent is the interface)
+Exec=xfce4-terminal --maximize --title "Origo 元启" --command "sh -c 'cd /opt/origo/agent && python3 -m origo_agent; exec bash'"
+Icon=utilities-terminal
+Terminal=false
+X-GNOME-Autostart-enabled=true
+StartupNotify=false

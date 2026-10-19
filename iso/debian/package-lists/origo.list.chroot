@@ -1,0 +1,51 @@
+# Origo v0.1 package list (installed in the live system / chroot)
+# Minimal Xfce desktop + graphical installer + Origo agent dependencies
+
+# Minimal desktop
+xfce4
+xfce4-terminal
+xfce4-goodies
+lightdm
+lightdm-gtk-greeter
+xserver-xorg
+xserver-xorg-video-all
+xserver-xorg-input-all
+network-manager
+network-manager-gnome
+pipewire
+pipewire-audio
+wireplumber
+fonts-noto-cjk
+fonts-noto-core
+dbus-x11
+
+# Graphical installer
+calamares
+calamares-settings-debian
+
+# Origo agent runtime (python3-requests / python3-rich cover dependencies)
+python3
+python3-requests
+python3-rich
+python3-pip
+python3-venv
+
+# Utilities
+git
+curl
+wget
+gnupg
+ca-certificates
+sudo
+less
+usbutils
+pciutils
+file
+man-db
+
+# Firmware / hardware support (needs contrib non-free nonfree-firmware)
+firmware-linux
+firmware-misc-nonfree
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "origo-agent"
+version = "0.1.0"
+description = "Origo (元启) — AI-native minimal OS agent core. Intent is the interface."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "The Origo Authors" }]
+dependencies = [
+    "requests>=2.31",
+    "rich>=13.0",
+]
+
+[project.scripts]
+origo-agent = "origo_agent.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["origo_agent*"]
