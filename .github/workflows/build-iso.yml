@@ -132,7 +132,7 @@ jobs:
           retention-days: 30
           compression-level: 0
 
-      - name: Clean existing release assets
+      - name: Delete existing release (clean slate)
         if: steps.build.outcome == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -141,17 +141,12 @@ jobs:
           API="https://api.github.com/repos/${REPO}/releases"
           REL=$(curl -fsS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" "${API}/tags/v0.1" || true)
-          if [ -z "$REL" ]; then
-            echo "release v0.1 does not exist yet; nothing to clean."
-            exit 0
-          fi
-          REL_ID=$(echo "$REL" | jq -r '.id')
-          echo "$REL" | jq -r '.assets[].id' | while read -r aid; do
-            echo "deleting asset ${aid}"
+          if [ -n "$REL" ]; then
+            REL_ID=$(echo "$REL" | jq -r '.id')
+            echo "Deleting release ${REL_ID} for a clean slate"
             curl -fsS -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              "${API}/${REL_ID}/assets/${aid}" || true
-          done
+              -H "Accept: application/vnd.github+json" "${API}/${REL_ID}"
+          fi
 
       - name: Publish rolling v0.1 release
         if: steps.build.outcome == 'success'
@@ -161,6 +156,20 @@ jobs:
           name: "Origo v0.1 (rolling preview)"
           prerelease: true
           make_latest: false
+          body: |
+            # Origo 元启 OS · v0.1（rolling preview）
+            意图即界面、Agent 取代 App 的 AI 原生极简操作系统。基于 Debian，开箱即用。
+
+            ## 完整版（推荐，出厂内置本地模型 qwen3:1.7b，约 4.5 GB）
+            1. 下载下面 3 个分卷：`origo-v0.1-full-amd64.part00`、`.part01`、`.part02`
+            2. 下载 `merge-iso.bat`（Windows）或 `merge-iso.sh`（Linux/macOS），把它和 3 个分卷放在同一个文件夹
+            3. Windows：双击 `merge-iso.bat`；Linux/macOS：`bash merge-iso.sh`
+            4. 合并得到 `origo-v0.1-full-amd64.iso`，用 Ventoy / Rufus（dd 模式）制作启动盘，或在虚拟机启动
+            5. 开机即自动进入桌面，无需登录；桌面或终端运行 `origo-agent` 即可使用本地模型（首次推理较慢，CPU 亦可运行）
+            桌面“安装 Origo”图标可用 Calamares 安装到硬盘。
+
+            校验：`.sha256` 文件为完整 ISO 的 SHA256（合并后校验）。
+            精简版（无模型）可用 Actions 手动构建（workflow_dispatch 选 lite）。
           files: release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
