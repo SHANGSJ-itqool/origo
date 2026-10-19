@@ -36,6 +36,10 @@ MODEL_READY=0
 
 if [ "${WITH_OLLAMA}" = "1" ]; then
   echo "==> Installing Ollama runtime..."
+  # The Ollama installer extracts a zstd-compressed tarball; ensure it exists.
+  if ! command -v zstd >/dev/null 2>&1; then
+    apt-get update -qq && apt-get install -y -qq zstd || true
+  fi
   if [ -n "${OLLAMA_MIRROR}" ]; then
     curl -fsSL "${OLLAMA_MIRROR}" | sh || echo "!! Ollama install script reported a failure"
   else

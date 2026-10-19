@@ -50,6 +50,7 @@ python3-venv
 git
 curl
 wget
+zstd
 gnupg
 ca-certificates
 sudo
