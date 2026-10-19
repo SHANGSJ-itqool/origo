@@ -23,6 +23,8 @@ class TUI:
         self.console = Console()
         self.cfg = cfg
         self.agent = Agent(cfg, default_skills(), on_event=self._on_event)
+        # Share the console so confirmation prompts match the UI styling.
+        self.agent.safety.console = self.console
 
     def _on_event(self, kind: str, text: str) -> None:
         styles = {
@@ -44,9 +46,14 @@ class TUI:
         self.console.print(Panel(banner, border_style="blue"))
 
     def one(self, text: str) -> None:
-        with self.console.status("thinking…", spinner="dots"):
-            answer = self.agent.run(text)
-        self.console.print(Panel(answer, border_style="green", title="Origo"))
+        try:
+            with self.console.status("thinking…", spinner="dots"):
+                answer = self.agent.run(text)
+            self.console.print(Panel(answer, border_style="green", title="Origo"))
+        except Exception as exc:  # noqa: BLE001 - last-resort: never crash the UI
+            self.console.print(
+                Panel(f"[red]{exc}[/]", border_style="red", title="Origo")
+            )
 
     def loop(self) -> None:
         self.welcome()

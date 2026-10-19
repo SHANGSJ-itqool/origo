@@ -12,6 +12,8 @@ live-tools
 # Minimal desktop
 xfce4
 xfce4-terminal
+xfce4-settings
+xfce4-power-manager
 lightdm
 lightdm-gtk-greeter
 xserver-xorg-core
@@ -27,6 +29,11 @@ dbus-x11
 polkitd
 lxpolkit
 xdg-utils
+
+# Settings panel backends (so the settings skill works on Xfce)
+pavucontrol
+blueman
+arandr
 
 # Graphical installer
 calamares

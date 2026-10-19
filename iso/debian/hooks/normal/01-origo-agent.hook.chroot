@@ -14,6 +14,14 @@ exec python3 -m origo_agent "$@"
 EOF
 chmod 755 /usr/local/bin/origo-agent
 
+# System-level config: pin the model tag this image actually ships, so the
+# agent can never look for a different model than the one present in the image.
+mkdir -p /etc/origo
+cat > /etc/origo/config.toml <<EOF
+# Written by the Origo image build. Pins the model tag present in this image.
+model = "${ORIGO_MODEL_TAG:-qwen3:1.7b}"
+EOF
+
 # Optional: install Ollama local model runtime (set WITH_OLLAMA=1).
 if [ "${WITH_OLLAMA:-0}" = "1" ]; then
   echo "Installing Ollama..."
@@ -24,11 +32,26 @@ if [ "${WITH_OLLAMA:-0}" = "1" ]; then
   fi
 fi
 
-# Optional: pre-pull a small model into the image (set WITH_MODEL=1).
+# Optional: pre-pull a model into the image (set WITH_MODEL=1).
 if [ "${WITH_MODEL:-0}" = "1" ] && [ "${WITH_OLLAMA:-0}" = "1" ]; then
-  MODEL="${ORIGO_MODEL_TAG:-qwen3:0.6b}"
+  MODEL="${ORIGO_MODEL_TAG:-qwen3:1.7b}"
   echo "Pre-pulling model: ${MODEL}"
-  ollama pull "${MODEL}" || true
+  # The systemd service runs as the 'ollama' user; store the model where it
+  # expects it (the install script creates this user/home).
+  export OLLAMA_MODELS="${OLLAMA_MODELS:-/usr/share/ollama/.ollama/models}"
+  mkdir -p "$OLLAMA_MODELS"
+  # systemd is not running inside the chroot, so start a temporary server.
+  /usr/local/bin/ollama serve >/var/log/origo-ollama-boot.log 2>&1 &
+  SRV=$!
+  for _ in $(seq 1 30); do
+    if curl -fsS http://localhost:11434/api/tags >/dev/null 2>&1; then break; fi
+    sleep 1
+  done
+  /usr/local/bin/ollama pull "$MODEL" || true
+  kill "$SRV" 2>/dev/null || true
+  wait "$SRV" 2>/dev/null || true
+  # Hand the model directory over to the runtime user.
+  chown -R ollama:ollama /usr/share/ollama 2>/dev/null || true
 fi
 
 echo "Origo agent hook complete."

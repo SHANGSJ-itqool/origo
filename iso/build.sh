@@ -7,9 +7,9 @@
 # Options (environment variables):
 #   DIST=trixie              Debian suite (default: trixie)
 #   MIRROR=http://...        Debian mirror (default: USTC for China)
-#   WITH_OLLAMA=1            install Ollama local model runtime
-#   WITH_MODEL=1             pre-pull a small model (implies network during build)
-#   ORIGO_MODEL_TAG=qwen3:0.6b
+#   WITH_OLLAMA=1            install Ollama local model runtime (default 1)
+#   WITH_MODEL=1             pre-pull a small model (default 1; needs network)
+#   ORIGO_MODEL_TAG=qwen3:1.7b
 #   OLLAMA_MIRROR=URL        custom install script URL
 #
 # Output: build/*.iso
@@ -21,15 +21,22 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DIST="${DIST:-trixie}"
 MIRROR="${MIRROR:-http://mirrors.ustc.edu.cn/debian}"
 SECURITY_MIRROR="${SECURITY_MIRROR:-http://mirrors.ustc.edu.cn/debian-security}"
-WITH_OLLAMA="${WITH_OLLAMA:-0}"
-WITH_MODEL="${WITH_MODEL:-0}"
-ORIGO_MODEL_TAG="${ORIGO_MODEL_TAG:-qwen3:0.6b}"
+# Origo ships a local "brain" by default; set WITH_OLLAMA=0 for a slim image.
+WITH_OLLAMA="${WITH_OLLAMA:-1}"
+WITH_MODEL="${WITH_MODEL:-1}"
+ORIGO_MODEL_TAG="${ORIGO_MODEL_TAG:-qwen3:1.7b}"
 OLLAMA_MIRROR="${OLLAMA_MIRROR:-}"
 export WITH_OLLAMA WITH_MODEL ORIGO_MODEL_TAG OLLAMA_MIRROR
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root (sudo ./build.sh)." >&2
   exit 1
+fi
+
+if [[ "${WITH_OLLAMA}" = "0" ]]; then
+  echo "!! WARNING: building WITHOUT a local model runtime. The agent will have" >&2
+  echo "!! no 'brain' until you install Ollama or configure a cloud backend; it" >&2
+  echo "!! will show setup guidance instead of crashing." >&2
 fi
 
 echo "==> Installing live-build and required host tools..."

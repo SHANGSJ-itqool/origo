@@ -6,13 +6,17 @@ on:
     paths:
       - "agent/**"
       - "iso/**"
+      - "scripts/**"
       - ".github/workflows/build-iso.yml"
   workflow_dispatch:
     inputs:
-      with_ollama:
-        description: "Build with Ollama runtime (1 = yes)"
-        required: false
-        default: "0"
+      edition:
+        type: choice
+        description: "Edition to build"
+        options:
+          - full
+          - lite
+        default: full
 
 permissions:
   contents: write
@@ -23,7 +27,7 @@ jobs:
     container:
       image: debian:trixie
       options: --privileged
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
@@ -36,7 +40,20 @@ jobs:
           apt-get install -y --no-install-recommends \
             live-build live-config debootstrap cpio xorriso isolinux \
             squashfs-tools grub-pc-bin grub-efi-amd64-bin mtools dosfstools \
-            curl ca-certificates grep
+            coreutils curl ca-certificates grep
+
+      - name: Select edition
+        run: |
+          EDITION="${{ github.event.inputs.edition || 'full' }}"
+          echo "Building edition: $EDITION"
+          if [ "$EDITION" = "full" ]; then
+            echo "WITH_OLLAMA=1" >> "$GITHUB_ENV"
+            echo "WITH_MODEL=1" >> "$GITHUB_ENV"
+          else
+            echo "WITH_OLLAMA=0" >> "$GITHUB_ENV"
+            echo "WITH_MODEL=0" >> "$GITHUB_ENV"
+          fi
+          echo "EDITION=$EDITION" >> "$GITHUB_ENV"
 
       - name: Build Origo ISO
         id: build
@@ -45,7 +62,6 @@ jobs:
         env:
           MIRROR: http://deb.debian.org/debian
           SECURITY_MIRROR: http://deb.debian.org/debian-security
-          WITH_OLLAMA: ${{ github.event.inputs.with_ollama || '0' }}
         run: |
           set -o pipefail
           ./build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/origo-build.log"
@@ -76,23 +92,39 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Stage ISO and checksum
+      - name: Stage ISO (split the full edition for release)
         if: steps.build.outcome == 'success'
         run: |
+          set -euxo pipefail
           ISO=$(ls iso/build/*.iso | head -1)
-          echo "Built: $ISO"
           du -h "$ISO"
-          cp "$ISO" origo-v0.1-amd64.iso
-          sha256sum origo-v0.1-amd64.iso | tee origo-v0.1-amd64.iso.sha256
+          mkdir -p release artifact
+          if [ "${EDITION}" = "full" ]; then
+            BASE="origo-v0.1-full-amd64"
+          else
+            BASE="origo-v0.1-amd64"
+          fi
+          cp "$ISO" "artifact/${BASE}.iso"
+          ( cd artifact && sha256sum "${BASE}.iso" > "${BASE}.iso.sha256" )
+          cp "artifact/${BASE}.iso.sha256" release/
+          if [ "${EDITION}" = "full" ]; then
+            # Each release asset must be <2 GiB; split at 1900 MiB.
+            split -d -b 1900M "artifact/${BASE}.iso" "release/${BASE}.part"
+            cp scripts/merge-iso.bat release/
+            cp scripts/merge-iso.sh release/
+            chmod +x release/merge-iso.sh
+          else
+            cp "artifact/${BASE}.iso" release/
+          fi
+          echo "=== release/ ==="
+          ls -lh release
 
-      - name: Upload ISO artifact
+      - name: Upload ISO artifact (whole image)
         if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: origo-v0.1-amd64
-          path: |
-            origo-v0.1-amd64.iso
-            origo-v0.1-amd64.iso.sha256
+          name: ${{ env.EDITION == 'full' && 'origo-v0.1-full-amd64' || 'origo-v0.1-amd64' }}
+          path: artifact/*
           retention-days: 30
           compression-level: 0
 
@@ -104,8 +136,6 @@ jobs:
           name: "Origo v0.1 (rolling preview)"
           prerelease: true
           make_latest: false
-          files: |
-            origo-v0.1-amd64.iso
-            origo-v0.1-amd64.iso.sha256
+          files: release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
