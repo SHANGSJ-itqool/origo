@@ -43,19 +43,22 @@ jobs:
           MIRROR: http://deb.debian.org/debian
           SECURITY_MIRROR: http://deb.debian.org/debian-security
           WITH_OLLAMA: ${{ github.event.inputs.with_ollama || '0' }}
-        run: ./build.sh
+        run: |
+          set -o pipefail
+          ./build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/origo-build.log"
 
       - name: Diagnose failure
         if: steps.build.outcome == 'failure'
         run: |
-          echo "::group::live-build build.log (tail)"
-          tail -n 150 iso/build/build.log 2>/dev/null || echo "no build.log"
+          LOG="${GITHUB_WORKSPACE}/origo-build.log"
+          echo "::group::build output (tail)"
+          tail -n 150 "$LOG" 2>/dev/null || echo "no build output log"
           echo "::endgroup::"
           {
-            grep -hoE 'E: .*|Error: .*|error: .*|No such .*|cannot .*|Invalid .*|.*not found.*|.*Failed.*|.*failed.*' \
-              iso/build/build.log 2>/dev/null | tail -25
+            grep -hoE 'E: .*|Error: .*|error: .*|No such .*|cannot .*|Invalid .*|unrecognized .*|not found.*|.*Failed.*|.*failed.*' \
+              "$LOG" 2>/dev/null | tail -25
             echo "----- last 25 lines -----"
-            tail -n 25 iso/build/build.log 2>/dev/null
+            tail -n 25 "$LOG" 2>/dev/null
           } | grep -vE '^[[:space:]]*$' | tail -40 | \
           while IFS= read -r line; do echo "::error::${line}"; done || true
 
@@ -64,7 +67,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: iso/build/build.log
+          path: |
+            origo-build.log
+            iso/build/build.log
           if-no-files-found: ignore
           retention-days: 14
 
